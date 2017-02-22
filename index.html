@@ -1,0 +1,189 @@
+<html>
+<head>
+<script type="text/javascript" src="js/dygraph.js"></script>
+<script type="text/javascript" src="js/synchronize.js"></script>
+
+<link rel="stylesheet" href="css/dygraph.css" />
+</head>
+<body>
+
+<!--<div id="g1" style="width:800px; height:300px;"></div>-->
+<!--<div id="g2" style="width:800px; height:300px;"></div>-->
+<div id="g3" style="width:800px; height:300px;"></div>
+<div id="g4" style="width:800px; height:300px;"></div>
+<script type="text/javascript">
+
+  function httpGet(theUrl) {
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.open( "GET", theUrl, false );
+    xmlHttp.send( null );
+    return xmlHttp.responseText;
+  }
+
+  function httpGetAsync(theUrl, callback)
+  {
+    var xmlHttp = new XMLHttpRequest();
+    xmlHttp.onreadystatechange = function() {
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+            callback(xmlHttp.responseText);
+    };
+    xmlHttp.open("GET", theUrl, true); // true for asynchronous
+    xmlHttp.send(null);
+  }
+
+  function plot_factory(div_id){
+    return function (csv) {
+      graph = new Dygraph(
+          document.getElementById(div_id),
+          csv
+      );
+    }
+  }
+
+//  g1 = new Dygraph(
+//      document.getElementById('g1'),
+//      'http://127.0.0.1:8080/job/906909/quantiles?notag=true&end=1486736683&fmt=TSV',
+//      {
+//        fillGraph: true,
+//        fillAlpha: 1,
+//        colors: ['#ff3f20', '#ff6f20', '#ff9f20', '#ffcf20', '#ffff20', '#cfff20', '#9fff20', '#6fff20', '#3fff20'],
+//        xValueParser: function(x) {return x*1000}
+////        axis: {
+////          x : {
+////            axisLabelFormatter: Dygraph.dateString_,
+////            ticker: Dygraph.dateTicker
+////          }
+////        }
+//      }
+//  );
+
+//  g2 = new Dygraph(
+//      document.getElementById('g2'),
+//      'http://127.0.0.1:8080/job/906909/HTTPcodes?fmt=TSV&end=1486736683',
+//      { fillGraph: true
+////        fillAlpha: 1
+////        axis:{
+////          x : {
+////            axisLabelFormatter: function(ts, gran, opts) {
+////              return Dygraph.dateAxisLabelFormatter(new Date(ts*1000), gran, opts)
+////            }
+////          }
+////        }
+//      }
+//
+//  );
+
+//  g3 = new Dygraph(
+//      document.getElementById('g3'),
+//      [
+//          [1486736563, 13, 26, 32, 38, 45, 64, 71, 88, 90],
+//          [1486736564, 14, 15, 30, 45, 52, 67, 71, 84, 95],
+//          [1486736565, 9, 21, 34, 56, 71, 78, 89, 90, 95]
+//      ],
+//      {
+//        labels: ['toUInt32(time)', 'q50', 'q75', 'q80', 'q85', 'q90', 'q95', 'q98', 'q99', 'q100'],
+//        fillGraph: true,
+//        fillAlpha: 1,
+//        colors: ['#ff3f20', '#ff6f20', '#ff9f20', '#ffcf20', '#ffff20', '#cfff20', '#9fff20', '#6fff20', '#3fff20'],
+//        xValueParser: function(x) {return x*1000}
+//      }
+//  );
+
+  G3 = {
+    base_url: 'http://127.0.0.1:8080/job/906909/quantiles?notag=true&fmt=TSV',
+    data: [
+          [1486736563, 13, 26, 32, 38, 45, 64, 71, 88, 90],
+          [1486736564, 14, 15, 30, 45, 52, 67, 71, 84, 95],
+          [1486736565, 9, 21, 34, 56, 71, 78, 89, 90, 95]
+    ],
+    div: document.getElementById('g3'),
+    plot_graph: function () {
+      this.graph = new Dygraph(
+          this.div,
+          this.data,
+          {
+            labels: ['toUInt32(time)', 'q50', 'q75', 'q80', 'q85', 'q90', 'q95', 'q98', 'q99', 'q100'],
+            fillGraph: true,
+            fillAlpha: 1,
+            colors: ['#ff3f20', '#ff6f20', '#ff9f20', '#ffcf20', '#ffff20', '#cfff20', '#9fff20', '#6fff20', '#3fff20'],
+            xValueParser: function(x) {return x*1000}
+          }
+      );
+      return this.graph
+    },
+    update_graph: function () {
+      start = this.graph.xAxisExtremes()[1];
+      end = start + 2;
+      var self = this;
+      httpGetAsync(this.base_url + '&start=' + start + '&end=' + end, function (new_rows_raw) {
+        self.add_new_rows(new_rows_raw)
+      });
+
+//      new_rows_raw = httpGet(this.base_url + '&start=' + start + '&end=' + end);
+    },
+    add_new_rows: function (new_rows_raw) {
+      new_rows = new_rows_raw.trim().split('\n').slice(1).map(row => row.split('\t').map(char => parseInt(char)));
+      Array.prototype.push.apply(this.data, new_rows);
+      return this.graph.updateOptions({'file': this.data})
+    }
+  };
+
+  G4 = {
+    base_url: 'http://127.0.0.1:8080/job/906909/quantiles?notag=true&fmt=TSV',
+    data: [
+          [1486736563, 13, 26, 32, 38, 45, 64, 71, 88, 90],
+          [1486736564, 14, 15, 30, 45, 52, 67, 71, 84, 95],
+          [1486736565, 9, 21, 34, 56, 71, 78, 89, 90, 95]
+    ],
+    div: document.getElementById('g4'),
+    plot_graph: function () {
+      this.graph = new Dygraph(
+          this.div,
+          this.data,
+          {
+            labels: ['toUInt32(time)', 'q50', 'q75', 'q80', 'q85', 'q90', 'q95', 'q98', 'q99', 'q100'],
+            fillGraph: true,
+            fillAlpha: 1,
+            colors: ['#ff3f20', '#ff6f20', '#ff9f20', '#ffcf20', '#ffff20', '#cfff20', '#9fff20', '#6fff20', '#3fff20'],
+            xValueParser: function(x) {return x*1000}
+          }
+      );
+      return this.graph
+    },
+    update_graph: function () {
+      start = this.graph.xAxisExtremes()[1];
+      end = start + 2;
+      var self = this;
+      httpGetAsync(this.base_url + '&start=' + start + '&end=' + end, function (new_rows_raw) {
+        self.add_new_rows(new_rows_raw)
+      });
+
+//      new_rows_raw = httpGet(this.base_url + '&start=' + start + '&end=' + end);
+    },
+    add_new_rows: function (new_rows_raw) {
+      new_rows = new_rows_raw.trim().split('\n').slice(1).map(row => row.split('\t').map(char => parseInt(char)));
+      Array.prototype.push.apply(this.data, new_rows);
+      return this.graph.updateOptions({'file': this.data})
+    }
+  };
+
+  G3.plot_graph();
+  G4.plot_graph();
+//  var sync = Dygraph.synchronize(G3.graph, G4.graph, {range: false});
+
+  var update = function (graph, base_url) {
+    end = graph.xAxisExtremes()[1]/1000 + 2;
+    return graph.updateOptions({'file': base_url + '&end=' + end})
+  };
+
+  var updateIntervalg2 = setInterval(function () {
+//    update(g1, 'http://127.0.0.1:8080/job/906909/quantiles?notag=true&fmt=TSV');
+//    update(g2, 'http://127.0.0.1:8080/job/906909/HTTPcodes?fmt=TSV')
+    G3.update_graph();
+    G4.update_graph()
+  }, 2000);
+
+
+</script>
+</body>
+</html>

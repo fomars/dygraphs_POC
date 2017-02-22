@@ -1,0 +1,173 @@
+<html>
+<head>
+<script type="text/javascript" src="js/dygraph.js"></script>
+<script type="text/javascript" src="js/synchronize.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<link rel="stylesheet" href="css/dygraph.css" />
+</head>
+<body>
+
+<div id="g1" style="width:800px; height:300px;"></div>
+<button style="color: grey;" id="q99">Q 99</button>
+<button style="color: dimgray;" id="q100">Q 100</button>
+<div id="g2" style="width:800px; height:300px;"></div>
+<!--<div id="g3" style="width:800px; height:300px;"></div>-->
+<!--<div id="g4" style="width:800px; height:300px;"></div>-->
+<script type="text/javascript">
+
+  function zip(arrays) {
+    return arrays[0].map(function (_, i) {
+      return arrays.map(function (array) {
+        return array[i]
+      })
+    })
+  }
+  
+  function GraphModel(graph_name, api_base_url, data, div, labels, colours) {
+    this.name = graph_name;
+    this.base_url = api_base_url;
+    this.data = data;
+    this.div = div;
+    this.capacity = 1000;
+    this.labels = labels;
+    this.colours = colours;
+    this.update = function (raw_data) {
+      new_rows = raw_data.trim().split('\n').slice(1).map(function(row){
+        values = row.split('\t');
+        x = Date.parse(values[0]) || parseInt(values[0]);
+        ys = values.slice(1).map(parseFloat);
+        return [x].concat(ys)
+      });
+      new_data = this.data.concat(new_rows);
+      if (new_data.length > this.capacity) {
+        this.data = new_data.slice(new_data.length - this.capacity)
+      }
+      else {
+        this.data = new_data
+      }
+      return this
+    };
+    this.view = function () {
+      if (typeof this.dygraph !== 'undefined') {
+        this.dygraph.updateOptions({'file': this.data})
+      }
+      else {
+        this.dygraph = new Dygraph(
+            this.div,
+            this.data,
+            {
+              labels: this.labels,
+              visibility: [true, true, true, true, true, true, true, false, false],
+              fillGraph: true,
+              fillAlpha: 1,
+              strokeWidth: 2,
+              colors: this.colours,
+              series: {
+                q100: {
+                  fillGraph: false
+                },
+                q99: {
+                  fillGraph: false
+                }
+              },
+              xlabel: zip([this.labels.slice(1), this.colours]).map(function(pair){
+                var name = pair[0],
+                    colour = pair[1];
+                return name +
+                       ': <span style="color: ' +
+                       colour +
+                       '">&#x25cf;</span> '
+              }).join(' '),
+              axes: {
+                x: {
+                  drawGrid: false
+                }
+              },
+              labelsSeparateLines: true
+            }
+        )
+      }
+    };
+    this.get_new_url = function (update_period) {
+      var start = this.data.length > 0 ? parseInt(this.data[this.data.length - 1]) + 1 : 0,
+          end = parseInt(update_period) && start > 0 ? start + parseInt(update_period) : 0,
+          start_str = start ? '&start=' + start : '',
+          end_str = end ? '&end=' + end : '';
+      return this.base_url + start_str + end_str
+    };
+    this.switch_visibility = function (i) {
+      var current = this.dygraph.visibility()[i];
+      this.dygraph.setVisibility(i, !current)
+    }
+  }
+
+  function update(model, data) {
+    return model.map(function(graph) {
+      return graph.update(data[graph.name])
+    })
+  }
+
+  function view(model){
+    return model.forEach(function (graph) {
+      return graph.view()
+    })
+  }
+
+  function main() {
+    G1 = new GraphModel(
+        'qantiles',
+        'http://127.0.0.1:8080/job/902843/quantiles?notag=true&fmt=TSV',
+        [
+          [1458583452, 13, 26, 32, 38, 45, 64, 71, 88, 90],
+          [1458583453, 14, 15, 30, 45, 52, 67, 71, 84, 95],
+          [1458583454, 9, 21, 34, 56, 71, 78, 89, 90, 95]
+        ],
+        document.getElementById('g1'),
+        ['toUInt32(time)', 'q50', 'q75', 'q80', 'q85', 'q90', 'q95', 'q98', 'q99', 'q100'],
+        ['#ff3f20', '#ff6f20', '#ff9f20', '#ffcf20', '#ffff20', '#cfff20', '#9fff20', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']
+    );
+    G2 = new GraphModel(
+        'quantiles',
+        'http://127.0.0.1:8080/job/902843/quantiles?notag=true&fmt=TSV',
+        [
+          [1458583452, 13, 26, 32, 38, 45, 64, 71, 88, 90],
+          [1458583453, 14, 15, 30, 45, 52, 67, 71, 84, 95],
+          [1458583454, 9, 21, 34, 56, 71, 78, 89, 90, 95]
+        ],
+        document.getElementById('g2'),
+        ['toUInt32(time)', 'q50', 'q75', 'q80', 'q85', 'q90', 'q95', 'q98', 'q99', 'q100'],
+        ['#ff3f20', '#ff6f20', '#ff9f20', '#ffcf20', '#ffff20', '#cfff20', '#9fff20', '#6fff20', '#3fff20']
+    );
+    var model = [G1];
+    view(model);
+    var UPD_PERIOD = 5;
+
+    var updateInterval = setInterval(function (){
+      $.when(
+          $.get(G1.get_new_url(UPD_PERIOD*10)),
+          $.get(G2.get_new_url(UPD_PERIOD*10))
+      ).done(function (g1_data, g2_data) {
+        G1.update(g1_data[0]);
+//        G2.update(g2_data[0]);
+        view(model)
+      })
+    }, UPD_PERIOD*1000);
+
+//    var sync = Dygraph.synchronize(G1.dygraph, G2.dygraph, {range: false});
+    $(document).ready(function () {
+      document.getElementById('q99').onclick = function () {
+        G1.switch_visibility(7)
+      };
+      document.getElementById('q100').onclick = function () {
+        G1.switch_visibility(8)
+      }
+
+    })
+  }
+
+  main();
+
+
+</script>
+</body>
+</html>
